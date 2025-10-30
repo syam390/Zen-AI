@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Zen-AI-Fax — Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .card { border: 1px solid #ddd; padding: 12px; border-radius: 8px; max-width: 900px; }
+    input[type=file] { display:block; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Zen-AI-Fax — Demo Upload</h2>
+    <p>Upload a PDF/image (for local testing, include 'referral' or 'prescription' in filename to trigger mock extraction).</p>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" id="fileInput" name="file" accept=".pdf,image/*" required>
+      <button type="submit">Upload</button>
+    </form>
+    <div id="msg"></div>
+
+    <h3>Documents</h3>
+    <table id="docsTable">
+      <thead><tr><th>Filename</th><th>Status</th><th>Type</th><th>Uploaded At</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    async function fetchDocs() {
+      const res = await fetch('http://localhost:3000/documents');
+      const j = await res.json();
+      const tbody = document.querySelector('#docsTable tbody');
+      tbody.innerHTML = '';
+      if (j.documents && j.documents.length) {
+        for (const d of j.documents) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${d.filename}</td><td>${d.status}</td><td>${d.document_type || ''}</td><td>${d.uploaded_at}</td>
+            <td><button onclick="viewDoc('${d.id}')">View</button></td>`;
+          tbody.appendChild(tr);
+        }
+      }
+    }
+
+    async function viewDoc(id) {
+      const res = await fetch('http://localhost:3000/document/' + id);
+      const j = await res.json();
+      if (j.success) {
+        alert('Fields:\n' + JSON.stringify(j.fields, null, 2));
+      } else {
+        alert('Error');
+      }
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fi = document.getElementById('fileInput');
+      if (!fi.files.length) return alert('Choose file');
+      const fd = new FormData();
+      fd.append('file', fi.files[0]);
+      document.getElementById('msg').textContent = 'Uploading...';
+      const res = await fetch('http://localhost:3000/upload', { method: 'POST', body: fd });
+      const j = await res.json();
+      document.getElementById('msg').textContent = JSON.stringify(j, null, 2);
+      await fetchDocs();
+    });
+
+    // refresh docs on load
+    fetchDocs();
+    setInterval(fetchDocs, 5000);
+  </script>
+</body>
+</html>
